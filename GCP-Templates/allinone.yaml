@@ -1,0 +1,75 @@
+# Copyright 2017 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# In this 'test11-topic' is created with 1 PULL subscription.
+# IAM policies are assigned to the topic and subscription.
+# Replace the following with appropirate values.
+# <FIXME:topic>: The TopicName to assign to pub/sub Topic.
+# <FIXME:members>: The name of user to add acessControl.
+# <FIXME:projectId>: The project ID to create the logsink for.
+# <FIXME:destinationName>: The name of a pubsub topic that exists.
+
+imports:
+  - path: pubsub.py
+    name: pubsub.py
+  - path: try.py
+    name: try.py
+  - path: cloud_function1.py
+    name: cloud_function1.py
+  - path: upload.py
+    name: upload.py
+  - path: function/function.go
+
+resources:
+  #pubsub topic test11-topic and first1-subscription subscription with acesscontrol policy.
+  - name: test-pubsub
+    type: pubsub.py
+    properties:
+      topic: test11-topic
+      accessControl:
+        - role: roles/pubsub.subscriber
+          members:
+            - user:rardhapu@in.ibm.com
+      subscriptions:
+        - name: first1-subscription
+          accessControl:
+            - role: roles/pubsub.subscriber
+              members:
+               - user:rardhapu@in.ibm.com
+          ackDeadlineSeconds: 15
+
+ # logsink with a PubSub topic destination.
+  - name: test-logsink-pubsub
+    type: try.py
+    properties:
+        projectId: brokerage-integrations 
+        destinationName: test11-topic
+        destinationType: pubsub
+        filter: logName!="projects/brokerage-integrations/logs/cloudfunctions.googleapis.com%2Fcloud-functions" AND protoPayload.@type="type.googleapis.com/google.cloud.audit.AuditLog" AND operation.last="true" OR (NOT operation.id:*) AND protoPayload.authenticationInfo.principalEmail="rardhapu@in.ibm.com"
+        uniqueWriterIdentity: true
+
+  # CloudFunction Template with go source code.
+  - name: my-testtemplatexyz
+    type: cloud_function1.py
+    properties:
+        region: us-central1
+        entryPoint: HelloPubSub
+        timeout: 120s     
+        availableMemoryMb: 512
+        runtime: go111     
+        #localUploadPath: /home/ravindra/GCP/function
+        sourceArchiveUrl: gs://randomtemplate1/function.zip
+        triggerTopic: projects/brokerage-integrations/topics/test11-topic
+
+  
+
